@@ -1,0 +1,38 @@
+# Base image
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV MPLBACKEND=Agg
+
+# System deps + MS ODBC 18
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates gnupg apt-transport-https software-properties-common \
+    build-essential \
+    unixodbc unixodbc-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+# Add Microsoft repo and install msodbcsql18
+RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg \
+ && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/microsoft-prod.list \
+ && apt-get update \
+ && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Python deps first (better layer caching)
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source
+COPY . /app
+
+# Expose API port
+EXPOSE 8000
+
+# DB string is passed at runtime
+# ENV DB_CONNECTION_STRING=""
+
+# Start
+CMD ["python", "-m", "uvicorn", "main_script:app", "--host", "0.0.0.0", "--port", "8000"]
