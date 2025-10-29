@@ -1,38 +1,28 @@
-# Base image
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV MPLBACKEND=Agg
+ENV DEBIAN_FRONTEND=noninteractive
 
-# System deps + MS ODBC 18
+# unixODBC + repo Microsoft + ODBC 18
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates gnupg apt-transport-https software-properties-common \
-    build-essential \
-    unixodbc unixodbc-dev \
- && rm -rf /var/lib/apt/lists/*
-
-# Add Microsoft repo and install msodbcsql18
-RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg \
- && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/microsoft-prod.list \
- && apt-get update \
- && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
- && rm -rf /var/lib/apt/lists/*
+      curl ca-certificates gnupg apt-transport-https build-essential \
+      unixodbc unixodbc-dev \
+  && curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft-archive-keyring.gpg \
+  && echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
+      > /etc/apt/sources.list.d/mssql-release.list \
+  && apt-get update && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Python deps first (better layer caching)
-COPY requirements.txt /app/requirements.txt
+# deps Python prima per caching
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
-COPY . /app
+# codice
+COPY . .
 
-# Expose API port
-EXPOSE 8000
-
-# DB string is passed at runtime
-# ENV DB_CONNECTION_STRING=""
-
-# Start
-CMD ["python", "-m", "uvicorn", "main_script:app", "--host", "0.0.0.0", "--port", "8000"]
+# avvio: usa $PORT di Render (fallback 8000 in locale)
+CMD ["sh","-c","uvicorn main_script:app --host 0.0.0.0 --port ${PORT:-8000}"]
