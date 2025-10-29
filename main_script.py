@@ -370,11 +370,17 @@ def health():
     except Exception as e:
         db_status = "error"
         db_error_details = str(e)
+    try:
+        odbc_drivers = pyodbc.drivers()
+    except Exception as e:
+        odbc_drivers = [f"error: {e}"]
     return {
         "api_status": "ok",
         "model_loaded": bool(model_pkg is not None),
         "database_connection": {"status": db_status, "details": db_error_details},
+        "odbc_drivers": odbc_drivers,
     }
+
 
 @app.post("/scrap/predict")
 def scrap_predict(payload: Dict[str, Any] = Body(...)):
@@ -503,3 +509,4 @@ def survival_groups(top: int = Query(3, ge=1, le=20)):
         series = km_curve(runs["duration_hours"].to_numpy(), runs["event"].to_numpy())
         out.append({"group": g, **series})
     return {"series": out}
+
