@@ -261,8 +261,13 @@ model_pkg: Optional[dict] = None
 async def load_model_on_startup():
     global model_pkg
     if P_MODEL.exists():
-        model_pkg = joblib.load(P_MODEL)
-        print("Modello caricato.")
+        try:
+            model_pkg = joblib.load(P_MODEL)
+            print("Modello caricato.")
+        except Exception as e:
+            model_pkg = None
+            print(f"Attenzione: impossibile caricare il modello ({e}). "
+                  "Installa scikit-learn e verifica la compatibilità di versione.")
     else:
         model_pkg = None
         print("Attenzione: modello non trovato.")
